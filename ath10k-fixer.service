@@ -1,0 +1,26 @@
+[Unit]
+Description=ath10k_pci fixer
+Before=network-pre.target
+
+[Service]
+ExecStart={PREFIX}/bin/ath10k-fixer
+Restart=on-failure
+DynamicUser=yes
+SyslogIdentifier=ath10k-fixer
+AmbientCapabilities=CAP_SYSLOG CAP_SYS_MODULE
+CapabilityBoundingSet=CAP_SYSLOG CAP_SYS_MODULE
+DeviceAllow=/dev/kmsg r
+NoNewPrivileges=yes
+SecureBits=keep-caps noroot-locked
+ProtectSystem=strict
+PrivateTmp=yes
+PrivateNetwork=yes
+RemoveIPC=yes
+ProtectHome=yes
+ProtectProc=invisible
+ProcSubset=pid
+
+[Install]
+WantedBy=default.target
+
+# vim: ft=systemd
