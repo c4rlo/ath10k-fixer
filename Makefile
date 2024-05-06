@@ -32,7 +32,7 @@ build_$(1)/%.o: src/%.cpp
 -include $$(objects_$(1):.o=.d)
 build_$(1)/$$(prog): LDFLAGS += $$(LDFLAGS_$(1))
 build_$(1)/$$(prog): $$(objects_$(1))
-	   $$(LINK.o) -o $$@ $$(LDLIBS) $$^
+	   $$(LINK.o) $$^ $$(LDLIBS) -o $$@
 $(1): build_$(1)/$$(prog)
 endef
 
