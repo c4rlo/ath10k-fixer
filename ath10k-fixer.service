@@ -21,6 +21,6 @@ ProtectProc=invisible
 ProcSubset=pid
 
 [Install]
-WantedBy=default.target
+WantedBy=multi-user.target
 
 # vim: ft=systemd
