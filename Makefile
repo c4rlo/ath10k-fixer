@@ -41,7 +41,7 @@ $(foreach mode,$(modes),$(eval $(call template,$(mode))))
 all: $(modes)
 
 clean:
-	$(RM) -r $(build_dirs)
+	$(RM) -r $(build_dirs) compile_commands.json
 
 compile_commands.json: Makefile $(cppfiles)
 	bear -- $(MAKE) -B debug
