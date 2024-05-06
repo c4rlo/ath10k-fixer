@@ -2,7 +2,7 @@ prefix := /usr/local
 install_runner := sudo
 
 CXXFLAGS := $(CXXFLAGS) -MMD -MP -Wall -Wextra -Werror -Wtype-limits -Wpedantic -pedantic-errors \
-	   -std=c++20 -D_GNU_SOURCE -march=native -pipe -Isrc
+	   -std=c++23 -D_GNU_SOURCE -march=native -pipe -Isrc
 CXXFLAGS_release := -DNDEBUG -O3 -flto
 CXXFLAGS_debug := -ggdb3 -fsanitize=address -fsanitize=undefined -D_GLIBCXX_DEBUG
 
