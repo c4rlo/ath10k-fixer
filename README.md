@@ -24,21 +24,29 @@ This repository contains a daemon that automates this, by watching the system lo
 relevant error messages, and reloading the kernel module in response. This has been a
 satisfactory solution for me.
 
-## How to use
+## Installation
 
-### Build
+- If using Arch Linux, install [ath10k-fixer from the AUR](https://aur.archlinux.org/packages/ath10k-fixer)
+  ([what's the AUR?](https://wiki.archlinux.org/index.php/Arch_User_Repository)).
+- Otherwise, run `make install`. This requires that you have a recent GCC with C++
+  compiler and GNU Make. You may be prompted for your `sudo` password.
+- Finally, run `sudo systemctl enable --now ath10k-fixer`. This starts the daemon and
+  ensures it gets started at every boot.
 
-Prerequisites: GCC with C++ compiler and GNU Make.
+## Uninstallation
+
+- Run `sudo systemctl disable --now ath10k-fixer` to stop the daemon and disable it such
+  that it no longer gets started at every boot.
+- If you installed ath10k-fixer from the AUR, uninstall it via
+  `sudo pacman -Rs ath10k-fixer`.
+- If instead you installed it via `make install`, run `make uninstall`. You may be
+  prompted for your `sudo` password.
+
+## Development
+
+Prerequisites: Recent GCC with C++ compiler and GNU Make.
 
 - `make debug`: create debug build.
 - `make compile_commands.json`: generate [`compile_commands.json`](https://clang.llvm.org/docs/JSONCompilationDatabase.html) file, useful for language servers like [`clangd`](https://clangd.llvm.org/); requires [`bear`](https://github.com/rizsotto/Bear).
 - `make release`: create release build.
 - `make clean`: delete all build artefacts.
-
-### Install
-
-`make install && sudo systemctl enable --now ath10k-fixer`
-
-### Uninstall
-
-`sudo systmectl disable --now ath10k-fixer && make uninstall`
