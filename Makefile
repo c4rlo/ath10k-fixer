@@ -1,12 +1,13 @@
+prog := ath10k-fixer
 prefix := /usr/local
 install_runner := sudo
 
-CXXFLAGS := $(CXXFLAGS) -MMD -MP -Wall -Wextra -Werror -Wtype-limits -Wpedantic -pedantic-errors \
-	   -std=c++23 -D_GNU_SOURCE -march=native -pipe -Isrc
-CXXFLAGS_release := -DNDEBUG -O3 -flto
-CXXFLAGS_debug := -ggdb3 -fsanitize=address -fsanitize=undefined -D_GLIBCXX_DEBUG
+CXXFLAGS_base := -MMD -MP -Wall -Wextra -Werror -Wtype-limits -Wpedantic -pedantic-errors \
+                 -std=c++23 -D_GNU_SOURCE -march=native -pipe -Isrc
+CXXFLAGS_release := -O3 -flto -DNDEBUG
+CXXFLAGS_debug := -Og -ggdb3 -fsanitize=address -fsanitize=undefined -D_GLIBCXX_DEBUG
 
-LDFLAGS := $(LDFLAGS) -pipe
+LDFLAGS_base := -pipe
 LDFLAGS_release := -flto -s
 LDFLAGS_debug := -fsanitize=address -fsanitize=undefined
 LDLIBS := -lstdc++
@@ -14,26 +15,25 @@ LDLIBS := -lstdc++
 MAKEFLAGS := -j $(shell nproc)
 .DEFAULT_GOAL := debug
 
-prog := ath10k-fixer
 modes := debug release
 cppfiles := $(wildcard src/*.cpp)
-objects := $(notdir $(cppfiles:.cpp=.o))
 build_dirs := $(addprefix build_,$(modes))
 
+$(modes): %: build_%/$(prog)
 $(build_dirs):
 	mkdir -p $@
 
 define template
-objects_$(1) := $$(addprefix build_$(1)/,$$(objects))
-$$(objects_$(1)): CXXFLAGS += $$(CXXFLAGS_$(1))
-$$(objects_$(1)): | build_$(1)
-build_$(1)/%.o: src/%.cpp
+objects_$(1) := $$(addprefix build_$(1)/,$$(notdir $$(cppfiles:.cpp=.o)))
+$$(objects_$(1)): override CXXFLAGS := $$(CXXFLAGS_base) $$(CXXFLAGS_$(1)) $$(CXXFLAGS)
+build_$(1)/%.o: src/%.cpp Makefile
 	$$(COMPILE.cc) -o $$@ $$<
+build_$(1)/%.o: | build_$(1)
 -include $$(objects_$(1):.o=.d)
-build_$(1)/$$(prog): LDFLAGS += $$(LDFLAGS_$(1))
-build_$(1)/$$(prog): $$(objects_$(1))
-	   $$(LINK.o) $$^ $$(LDLIBS) -o $$@
-$(1): build_$(1)/$$(prog)
+build_$(1)/$$(prog): override LDFLAGS := $$(LDFLAGS_base) $$(LDFLAGS_$(1)) $$(LDFLAGS)
+build_$(1)/$$(prog): $$(objects_$(1)) Makefile
+	   $$(LINK.o) $$(filter-out Makefile,$$^) $$(LDLIBS) -o $$@
+build_$(1)/$$(prog): | build_$(1)
 endef
 
 $(foreach mode,$(modes),$(eval $(call template,$(mode))))
@@ -57,5 +57,5 @@ uninstall:
 		$(DESTDIR)$(prefix)/bin/$(prog) \
 		$(DESTDIR)$(prefix)/lib/systemd/system/$(prog).service
 
-.PHONY: all clean compile_commands.json install uninstall $(modes)
+.PHONY: all clean install uninstall $(modes)
 .DELETE_ON_ERROR:

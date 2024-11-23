@@ -1,3 +1,12 @@
+#include <cerrno>
+#include <concepts>
+#include <cstddef>
+#include <iostream>
+#include <print>
+#include <regex>
+#include <string_view>
+#include <system_error>
+
 #include <fcntl.h>
 #include <poll.h>
 #include <signal.h>
@@ -6,13 +15,6 @@
 #include <sys/signalfd.h>
 #include <sys/wait.h>
 #include <unistd.h>
-
-#include <cerrno>
-#include <concepts>
-#include <iostream>
-#include <regex>
-#include <string_view>
-#include <system_error>
 
 
 const std::regex WIFI_CRASHED_RE(
@@ -26,9 +28,8 @@ bool reportError(std::string_view action, int code)
         return false;
     }
 
-    std::cerr << "Failed to " << action << ": "
-              << std::error_code(code, std::system_category()).message()
-              << '\n';
+    std::println(std::cerr, "Failed to {}: {}", action,
+                 std::error_code(code, std::system_category()).message());
 
     return true;
 }
@@ -46,12 +47,12 @@ struct SpawnAttrGuard {
 
 void doRunCommand(const char* const argv[])
 {
-    posix_spawnattr_t attr;
+    posix_spawnattr_t attr{};
     if (reportError("init spawn attr", posix_spawnattr_init(&attr))) {
         return;
     }
     SpawnAttrGuard attrGuard{&attr};
-    sigset_t noSigs;
+    sigset_t noSigs{};
     sigemptyset(&noSigs);
     reportError("set spawn attr sigmask",
                 posix_spawnattr_setsigmask(&attr, &noSigs));
@@ -65,23 +66,21 @@ void doRunCommand(const char* const argv[])
     }
 
     int wstatus{};
-    rc = waitpid(pid, &wstatus, 0);
-    if (rc == -1) {
+    if (waitpid(pid, &wstatus, 0) == -1) {
         reportError("wait for sub-process", errno);
     }
     else if (WIFSIGNALED(wstatus)) {
         const int sig = WTERMSIG(wstatus);
-        std::cerr << "sub-process died of SIG" << sigabbrev_np(sig) << " ("
-                  << sig << "): " << sigdescr_np(sig) << '\n';
+        std::println(std::cerr, "sub-process died of SIG{} ({}): {}",
+                     sigabbrev_np(sig), sig, sigdescr_np(sig));
     }
     else if (WIFEXITED(wstatus)) {
-        const int rc = WEXITSTATUS(wstatus);
-        if (rc != 0) {
-            std::cerr << "sub-process error: rc=" << rc << '\n';
+        if (const int rc = WEXITSTATUS(wstatus); rc != 0) {
+            std::println(std::cerr, "sub-process error: rc={}", rc);
         }
     }
     else {
-        std::cerr << "sub-process died abnormally: " << wstatus << '\n';
+        std::println(std::cerr, "sub-process died abnormally: {}", wstatus);
     }
 }
 
@@ -94,7 +93,7 @@ void runCommand(const std::convertible_to<const char*> auto&... args)
 void processEntry(std::string_view msg)
 {
     if (std::regex_search(msg.begin(), msg.end(), WIFI_CRASHED_RE)) {
-        std::cout << "Reloading ath10k_pci kernel module" << std::endl;
+        std::println("Reloading ath10k_pci kernel module");
         runCommand("modprobe", "-r", "ath10k_pci");
         runCommand("modprobe", "ath10k_pci");
     }
@@ -120,20 +119,18 @@ int main()
     }
     FdGuard kmsgFdGuard{kmsgFd};
 
-    const off_t offset = lseek(kmsgFd, 0, SEEK_END);
-    if (offset == -1) {
+    if (lseek(kmsgFd, 0, SEEK_END) == -1) {
         reportError("seek to end of /dev/kmsg", errno);
         return 1;
     }
 
-    std::cout << "Monitoring kernel log for ath10k_pci trouble..." << std::endl;
+    std::println("Monitoring kernel log for ath10k_pci trouble...");
 
-    sigset_t sigs;
+    sigset_t sigs{};
     sigemptyset(&sigs);
     sigaddset(&sigs, SIGINT);
     sigaddset(&sigs, SIGTERM);
-    int rc = sigprocmask(SIG_SETMASK, &sigs, nullptr);
-    if (rc == -1) {
+    if (sigprocmask(SIG_SETMASK, &sigs, nullptr) == -1) {
         reportError("set signal mask", errno);
         return 1;
     }
@@ -148,37 +145,37 @@ int main()
     while (true) {
         pollfd pollFds[] = { {.fd = kmsgFd, .events = POLLIN, .revents = 0 },
                              {.fd = sigFd,  .events = POLLIN, .revents = 0 } };
-        rc = poll(pollFds, sizeof(pollFds)/sizeof(pollFds[0]), -1);
-        if (rc == -1) {
+        if (poll(pollFds, std::size(pollFds), -1) == -1) {
             reportError("poll", errno);
             return 1;
         }
 
         if (pollFds[1].revents & POLLIN) {
-            signalfd_siginfo sigInfo;
+            signalfd_siginfo sigInfo{};
             const ssize_t sz = read(sigFd, &sigInfo, sizeof sigInfo);
             if (sz == sizeof sigInfo) {
-                std::cout << "Caught SIG" << sigabbrev_np(sigInfo.ssi_signo)
-                          << "; exiting" << std::endl;
+                std::println("Caught SIG{}; exiting",
+                             sigabbrev_np(sigInfo.ssi_signo));
                 return 0;
             }
             else if (sz >= 0) {
-                std::cerr << "Caught signal but read unexpected number of "
-                              "bytes from signalfd (" << sz << " != "
-                          << sizeof(sigInfo) << "); exiting\n";
+                std::println(std::cerr,
+                             "Caught signal but read unexpected number of "
+                             "bytes from signalfd ({} != {}); exiting",
+                             sz, sizeof sigInfo);
                 return 1;
             }
             else {
                 reportError("read from signalfd", errno);
-                std::cerr << "Exiting\n";
+                std::println(std::cerr, "Exiting");
                 return 1;
             }
         }
 
         for (const auto& pfd : pollFds) {
             if ((pfd.revents & (POLLERR | POLLHUP)) != 0) {
-                std::cerr << "poll error for fd " << pfd.fd << ": "
-                          << pfd.revents << "; exiting\n";
+                std::println(std::cerr, "poll error for fd {}: {}; exiting",
+                             pfd.fd, pfd.revents);
                 return 1;
             }
         }
@@ -191,10 +188,10 @@ int main()
             char buf[8192];
             const ssize_t sz = read(kmsgFd, buf, sizeof buf);
             if (sz > 0) {
-                processEntry({buf, size_t(sz)});
+                processEntry({buf, std::size_t(sz)});
             }
             else if (sz == 0) {
-                std::cerr << "/dev/kmsg unexpectedly reached EOF\n";
+                std::println(std::cerr, "/dev/kmsg unexpectedly reached EOF");
                 return 1;
             }
             else if (errno == EAGAIN || errno == EPIPE) {
