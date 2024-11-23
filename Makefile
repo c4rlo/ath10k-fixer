@@ -3,13 +3,13 @@ prefix := /usr/local
 install_runner := sudo
 
 CXXFLAGS_base := -MMD -MP -Wall -Wextra -Werror -Wtype-limits -Wpedantic -pedantic-errors \
-                 -std=c++23 -D_GNU_SOURCE -march=native -pipe -Isrc
+                 -std=c++23 -D_GNU_SOURCE -march=native -fno-plt -pipe -Isrc
 CXXFLAGS_release := -O3 -flto -DNDEBUG
-CXXFLAGS_debug := -Og -ggdb3 -fsanitize=address -fsanitize=undefined -D_GLIBCXX_DEBUG
+CXXFLAGS_debug := -Og -ggdb3 -fsanitize=address -fsanitize=undefined -fhardened -D_GLIBCXX_DEBUG
 
-LDFLAGS_base := -pipe
+LDFLAGS_base := -pipe -Wl,--sort-common,--as-needed -z relro -z now -z pack-relative-relocs
 LDFLAGS_release := -flto -s
-LDFLAGS_debug := -fsanitize=address -fsanitize=undefined
+LDFLAGS_debug := -fsanitize=address -fsanitize=undefined -fhardened
 LDLIBS := -lstdc++
 
 MAKEFLAGS := -j $(shell nproc)
