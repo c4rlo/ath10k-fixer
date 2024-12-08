@@ -1,6 +1,7 @@
 #include <cerrno>
 #include <concepts>
 #include <cstddef>
+#include <cstdio>
 #include <iostream>
 #include <print>
 #include <regex>
@@ -112,6 +113,11 @@ struct FdGuard {
 
 int main()
 {
+    if (std::setvbuf(stdout, nullptr, _IOLBF, BUFSIZ) != 0) {
+        reportError("set stdout line buffering", errno);
+        return 1;
+    }
+
     const int kmsgFd = open("/dev/kmsg", O_RDONLY | O_NONBLOCK | O_CLOEXEC);
     if (kmsgFd == -1) {
         reportError("open /dev/kmsg", errno);
